@@ -43,14 +43,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             lights = group_data["lights"]
             old_states = {light: hass.states.get(light) for light in lights}
 
-            for _ in range(3):
-                for light in lights:
-                    await hass.services.async_call("light", "turn_on", {"entity_id": light, "rgb_color": rgb_color, "brightness": 100}, blocking=True)
+            for _ in range(4):
+                await hass.services.async_call("light", "turn_on", {"entity_id": lights, "rgb_color": rgb_color, "brightness": 255}, blocking=True)
 
                 await asyncio.sleep(1)
 
-                for light in lights:
-                    await hass.services.async_call("light", "turn_off", {"entity_id": light}, blocking=True)
+                await hass.services.async_call("light", "turn_off", {"entity_id": lights}, blocking=True)
+
                 await asyncio.sleep(1)
 
             await restore_old_states(hass, old_states)
@@ -97,9 +96,10 @@ async def restore_old_states(hass: HomeAssistant, old_states: dict):
 
         # Prepare data for restoring the light's state
         data = {"entity_id": entity_id}
-        if "brightness" in attrs:
-            data["brightness"] = attrs["brightness"]
-        if "hs_color" in attrs:
+        if attrs.get("brightness"):
+            data["brightness"] = int(attrs["brightness"])
+
+        if attrs.get("hs_color"):
             data["hs_color"] = attrs["hs_color"]
         elif "rgb_color" in attrs:
             data["rgb_color"] = attrs["rgb_color"]
