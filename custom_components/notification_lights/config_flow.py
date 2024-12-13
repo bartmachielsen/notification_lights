@@ -51,6 +51,7 @@ class NotificationLightsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # For now, we don't provide options since all configuration is done at creation time.
         return NotificationLightsOptionsFlow(config_entry)
 
+
 class NotificationLightsOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
         self.config_entry = config_entry

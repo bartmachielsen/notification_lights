@@ -10,9 +10,11 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def async_setup(hass: HomeAssistant, config: dict):
     hass.data.setdefault(DOMAIN, {})
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     group_name = entry.data["group_name"]
@@ -32,20 +34,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async def async_handle_trigger_notification(call):
             entity_id = call.data["entity_id"]
             rgb_color = call.data.get("color")
-            pattern_on = call.data.get("pattern_on")
-            pattern_off = call.data.get("pattern_off")
-            pattern_repeat = call.data.get("pattern_repeat")
-            duration = call.data.get("duration", 10)
-            restore = call.data.get("restore", True)
-
-            # Build pattern if provided
-            pattern = {}
-            if pattern_on is not None and pattern_off is not None and pattern_repeat is not None:
-                pattern = {
-                    "on": pattern_on,
-                    "off": pattern_off,
-                    "repeat": pattern_repeat
-                }
 
             group_data = await find_group_by_entity_id(hass, entity_id)
             if not group_data:
@@ -55,14 +43,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             lights = group_data["lights"]
             old_states = {light: hass.states.get(light) for light in lights}
 
-            await run_notification_pattern(hass, lights, rgb_color, pattern, duration)
+            for _ in range(3):
+                for light in lights:
+                    await hass.services.async_call("light", "turn_on", {"entity_id": light, "rgb_color": rgb_color}, blocking=True)
 
-            if restore:
-                await restore_old_states(hass, old_states)
+                await asyncio.sleep(1)
+
+                for light in lights:
+                    await hass.services.async_call("light", "turn_off", {"entity_id": light}, blocking=True)
+                await asyncio.sleep(1)
+
+            await restore_old_states(hass, old_states)
 
         hass.services.async_register(DOMAIN, "trigger_notification", async_handle_trigger_notification)
 
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -71,6 +67,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     # if not hass.data[DOMAIN]:
     #     hass.services.async_remove(DOMAIN, "trigger_notification")
     return True
+
 
 async def find_group_by_entity_id(hass: HomeAssistant, entity_id: str):
     """Find group data by entity_id."""
@@ -87,33 +84,6 @@ async def find_group_by_entity_id(hass: HomeAssistant, entity_id: str):
 
     return hass.data[DOMAIN][entry_id]
 
-async def run_notification_pattern(hass: HomeAssistant, lights: list, rgb_color, pattern: dict, duration: float):
-    if pattern and "on" in pattern and "off" in pattern and "repeat" in pattern:
-        on_time = pattern["on"]
-        off_time = pattern["off"]
-        repeat = pattern["repeat"]
-        for _ in range(int(repeat)):
-            await turn_on_lights(hass, lights, rgb_color)
-            await asyncio.sleep(on_time)
-            await turn_off_lights(hass, lights)
-            await asyncio.sleep(off_time)
-    else:
-        await turn_on_lights(hass, lights, rgb_color)
-        await asyncio.sleep(duration)
-
-async def turn_on_lights(hass: HomeAssistant, lights: list, rgb_color):
-    service_data = {}
-    if rgb_color and len(rgb_color) == 3:
-        service_data["rgb_color"] = rgb_color
-
-    for light in lights:
-        data = {"entity_id": light}
-        data.update(service_data)
-        await hass.services.async_call("light", "turn_on", data, blocking=True)
-
-async def turn_off_lights(hass: HomeAssistant, lights: list):
-    for light in lights:
-        await hass.services.async_call("light", "turn_off", {"entity_id": light}, blocking=True)
 
 async def restore_old_states(hass: HomeAssistant, old_states: dict):
     for entity_id, old_state in old_states.items():

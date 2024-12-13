@@ -14,48 +14,4 @@ trigger_notification:
       required: false
       selector:
         color_rgb: {}
-    pattern_on:
-      description: "Time (in seconds) lights stay ON in each pattern cycle."
-      required: false
-      default: 1.0
-      selector:
-        number:
-          min: 0
-          max: 10
-          step: 0.1
-          unit_of_measurement: "s"
-    pattern_off:
-      description: "Time (in seconds) lights stay OFF in each pattern cycle."
-      required: false
-      default: 1.0
-      selector:
-        number:
-          min: 0
-          max: 10
-          step: 0.1
-          unit_of_measurement: "s"
-    pattern_repeat:
-      description: "Number of times to repeat the pattern."
-      required: false
-      default: 3
-      selector:
-        number:
-          min: 1
-          max: 20
-          step: 1
-    duration:
-      description: "Duration in seconds if no pattern is defined."
-      required: false
-      default: 10
-      selector:
-        number:
-          min: 1
-          max: 600
-          step: 1
-          unit_of_measurement: "s"
-    restore:
-      description: "Restore previous states after finishing?"
-      required: false
-      default: true
-      selector:
-        boolean: {}
+

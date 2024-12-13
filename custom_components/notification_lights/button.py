@@ -21,9 +21,16 @@ class NotificationGroupButton(ButtonEntity):
         self._attr_unique_id = f"{entry_id}_notification_button"
 
     async def async_press(self):
-        # No direct action needed here; the service call will handle parameters.
-        # But you can call the same code as the service if you'd like a button press to trigger with default settings.
-        pass
+        """Trigger the notification service when the button is pressed."""
+        try:
+            await self._hass.services.async_call(
+                DOMAIN,
+                "trigger_notification",
+                {"entity_id": self.unique_id, "color": [255, 0, 0]},  # Example RGB color
+                blocking=True
+            )
+        except Exception as e:
+            _LOGGER.error("Error triggering notification: %s", e)
 
     @property
     def device_info(self) -> DeviceInfo:
