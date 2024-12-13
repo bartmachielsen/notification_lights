@@ -1,30 +1,60 @@
-create_group:
-  name: "Create a notification light group"
-  description: "Create a new notification group with specified lights."
-  fields:
-    group_name:
-      description: "Name of the new notification group."
-      example: "kitchen_alert"
-    lights:
-      description: "List of light entity_ids to include in the group."
-      example: ["light.kitchen_lamp", "light.kitchen_counter"]
-
 trigger_notification:
   name: "Trigger a notification on a light group"
-  description: "Trigger a visual notification pattern using a defined notification group of lights."
+  description: "Trigger a visual notification pattern using a specified notification group."
   fields:
     group_name:
       description: "Name of the notification group."
-      example: "alarm_alert"
+      required: true
+      selector:
+        text:
+          multiline: false
     color:
-      description: "Color of the notification (hex code, named, etc.)."
-      example: "#FF0000"
-    pattern:
-      description: "Blink pattern, e.g. {'on': 1.0, 'off': 1.0, 'repeat': 3}"
-      example: {"on": 1.0, "off": 1.0, "repeat": 3}
+      description: "Notification color (if supported) using a color picker."
+      required: false
+      selector:
+        color_rgb: {}
+    pattern_on:
+      description: "Time (in seconds) for which lights stay ON in each pattern cycle."
+      required: false
+      default: 1.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+          unit_of_measurement: "s"
+    pattern_off:
+      description: "Time (in seconds) for which lights stay OFF in each pattern cycle."
+      required: false
+      default: 1.0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.1
+          unit_of_measurement: "s"
+    pattern_repeat:
+      description: "Number of times to repeat the pattern."
+      required: false
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
     duration:
-      description: "Total duration of the notification in seconds (if no pattern specified)."
-      example: 10
+      description: "Duration in seconds to hold the light state if no pattern is defined."
+      required: false
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 600
+          step: 1
+          unit_of_measurement: "s"
     restore:
-      description: "Restore previous states after notification ends?"
-      example: true
+      description: "Restore previous states after finishing?"
+      required: false
+      default: true
+      selector:
+        boolean: {}

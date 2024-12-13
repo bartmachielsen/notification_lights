@@ -1,84 +1,109 @@
 import logging
+import asyncio
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.const import STATE_ON
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    # Not used much here since we rely on config entries
+    """Set up the Notification Lights integration from YAML if present (not used here)."""
     hass.data.setdefault(DOMAIN, {})
     return True
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up from a config entry."""
+    """Set up Notification Lights from a config entry."""
+    # Store the group configuration data in memory
+    group_name = entry.data["group_name"]
+    lights = entry.data["lights"]
     hass.data[DOMAIN][entry.entry_id] = {
-        "groups": entry.data.get("groups", [])  # or entry.options.get("groups", [])
+        "group_name": group_name,
+        "lights": lights
     }
 
-    # Register services using the groups from the entry
-    async def async_handle_trigger_notification(call):
-        group_name = call.data.get("group_name")
-        color = call.data.get("color")
-        pattern = call.data.get("pattern", {})
-        duration = call.data.get("duration", 10)
-        restore = call.data.get("restore", True)
+    # Register the service only once
+    if not hass.services.has_service(DOMAIN, "trigger_notification"):
+        async def async_handle_trigger_notification(call: ServiceCall):
+            requested_group = call.data.get("group_name")
+            # color is provided as an RGB array from the color picker, e.g. [255, 0, 0]
+            rgb_color = call.data.get("color")
+            pattern_on = call.data.get("pattern_on")
+            pattern_off = call.data.get("pattern_off")
+            pattern_repeat = call.data.get("pattern_repeat")
+            duration = call.data.get("duration", 10)
+            restore = call.data.get("restore", True)
 
-        groups = hass.data[DOMAIN][entry.entry_id]["groups"]
-        group_map = {group["name"]: group["lights"] for group in groups}
+            # Build the pattern dict if pattern fields are provided
+            pattern = {}
+            if pattern_on is not None and pattern_off is not None and pattern_repeat is not None:
+                pattern = {
+                    "on": pattern_on,
+                    "off": pattern_off,
+                    "repeat": pattern_repeat
+                }
 
-        if group_name not in group_map:
-            _LOGGER.error("Notification group %s not found", group_name)
-            return
+            all_groups = _get_all_groups(hass)
+            if requested_group not in all_groups:
+                _LOGGER.error("Notification group %s not found", requested_group)
+                return
 
-        lights = group_map[group_name]
+            lights = all_groups[requested_group]
 
-        # Save current states
-        old_states = {}
-        for light in lights:
-            old_states[light] = hass.states.get(light)
+            old_states = {}
+            for light in lights:
+                old_states[light] = hass.states.get(light)
 
-        # Run the notification pattern
-        await run_notification_pattern(hass, lights, color, pattern, duration)
+            await run_notification_pattern(hass, lights, rgb_color, pattern, duration)
 
-        # Restore states if requested
-        if restore:
-            await restore_old_states(hass, old_states)
+            if restore:
+                await restore_old_states(hass, old_states)
 
-    # Register the service. If you prefer a domain-based service name, update accordingly.
-    hass.services.async_register(DOMAIN, "trigger_notification", async_handle_trigger_notification)
+        hass.services.async_register(
+            DOMAIN,
+            "trigger_notification",
+            async_handle_trigger_notification
+        )
 
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    # Unregister services related to this entry if needed.
     hass.data[DOMAIN].pop(entry.entry_id, None)
+    # If you want, you could remove the service if no entries remain:
+    # if not hass.data[DOMAIN]:
+    #     hass.services.async_remove(DOMAIN, "trigger_notification")
     return True
 
-async def run_notification_pattern(hass: HomeAssistant, lights: list, color: str, pattern: dict, duration: float):
-    import asyncio
-    if pattern:
-        on_time = pattern.get("on", 1.0)
-        off_time = pattern.get("off", 1.0)
-        repeat = pattern.get("repeat", 3)
+def _get_all_groups(hass: HomeAssistant):
+    """Return a dict of all groups {group_name: [lights]} from all config entries."""
+    groups = {}
+    for entry_id, data in hass.data[DOMAIN].items():
+        groups[data["group_name"]] = data["lights"]
+    return groups
+
+async def run_notification_pattern(hass: HomeAssistant, lights: list, rgb_color, pattern: dict, duration: float):
+    """Run the notification pattern: if pattern is provided, blink; otherwise just hold for duration."""
+    if pattern and "on" in pattern and "off" in pattern and "repeat" in pattern:
+        on_time = pattern["on"]
+        off_time = pattern["off"]
+        repeat = pattern["repeat"]
         for _ in range(int(repeat)):
-            await turn_on_lights(hass, lights, color)
+            await turn_on_lights(hass, lights, rgb_color)
             await asyncio.sleep(on_time)
             await turn_off_lights(hass, lights)
             await asyncio.sleep(off_time)
     else:
-        await turn_on_lights(hass, lights, color)
+        # No pattern, just turn on for duration
+        await turn_on_lights(hass, lights, rgb_color)
         await asyncio.sleep(duration)
+        # Restoration happens afterwards
 
-async def turn_on_lights(hass: HomeAssistant, lights: list, color: str):
-    if color and color.startswith("#") and len(color) == 7:
-        r = int(color[1:3],16)
-        g = int(color[3:5],16)
-        b = int(color[5:7],16)
-        service_data = {"rgb_color": [r, g, b]}
-    else:
-        service_data = {}
+async def turn_on_lights(hass: HomeAssistant, lights: list, rgb_color):
+    """Turn on the given lights, optionally with a specified RGB color."""
+    service_data = {}
+    if rgb_color and len(rgb_color) == 3:
+        service_data["rgb_color"] = rgb_color
 
     for light in lights:
         data = {"entity_id": light}
@@ -86,15 +111,17 @@ async def turn_on_lights(hass: HomeAssistant, lights: list, color: str):
         await hass.services.async_call("light", "turn_on", data, blocking=True)
 
 async def turn_off_lights(hass: HomeAssistant, lights: list):
+    """Turn off the given lights."""
     for light in lights:
         await hass.services.async_call("light", "turn_off", {"entity_id": light}, blocking=True)
 
 async def restore_old_states(hass: HomeAssistant, old_states: dict):
+    """Restore the old states of the lights after the notification is done."""
     for entity_id, old_state in old_states.items():
         if old_state is None:
             continue
         attrs = old_state.attributes
-        prev_on = (old_state.state == "on")
+        prev_on = (old_state.state == STATE_ON)
 
         if prev_on:
             data = {"entity_id": entity_id}
