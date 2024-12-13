@@ -1,20 +1,20 @@
 trigger_notification:
-  name: "Trigger a notification on a light group"
-  description: "Trigger a visual notification pattern using a specified notification group."
+  name: "Trigger a notification on a notification group entity"
+  description: "Trigger a visual notification pattern using the chosen notification group entity."
   fields:
-    group_name:
-      description: "Name of the notification group."
+    entity_id:
+      description: "Select the notification group entity."
       required: true
       selector:
-        text:
-          multiline: false
+        entity:
+          domain: button
     color:
       description: "Notification color (if supported) using a color picker."
       required: false
       selector:
         color_rgb: {}
     pattern_on:
-      description: "Time (in seconds) for which lights stay ON in each pattern cycle."
+      description: "Time (in seconds) lights stay ON in each pattern cycle."
       required: false
       default: 1.0
       selector:
@@ -24,7 +24,7 @@ trigger_notification:
           step: 0.1
           unit_of_measurement: "s"
     pattern_off:
-      description: "Time (in seconds) for which lights stay OFF in each pattern cycle."
+      description: "Time (in seconds) lights stay OFF in each pattern cycle."
       required: false
       default: 1.0
       selector:
@@ -43,7 +43,7 @@ trigger_notification:
           max: 20
           step: 1
     duration:
-      description: "Duration in seconds to hold the light state if no pattern is defined."
+      description: "Duration in seconds if no pattern is defined."
       required: false
       default: 10
       selector:

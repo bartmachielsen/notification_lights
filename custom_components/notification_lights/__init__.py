@@ -7,26 +7,31 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the Notification Lights integration from YAML if present (not used here)."""
     hass.data.setdefault(DOMAIN, {})
     return True
 
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
-    """Set up Notification Lights from a config entry."""
-    # Store the group configuration data in memory
     group_name = entry.data["group_name"]
     lights = entry.data["lights"]
+
     hass.data[DOMAIN][entry.entry_id] = {
         "group_name": group_name,
         "lights": lights
     }
 
-    # Register the service only once
+    # Setup the button platform
+    hass.async_create_task(
+        hass.config_entries.async_forward_entry_setup(entry, "button")
+    )
+
+    # Register service if not already
     if not hass.services.has_service(DOMAIN, "trigger_notification"):
-        async def async_handle_trigger_notification(call: ServiceCall):
-            requested_group = call.data.get("group_name")
-            # color is provided as an RGB array from the color picker, e.g. [255, 0, 0]
+        async def async_handle_trigger_notification(call):
+            entity_id = call.data["entity_id"]
             rgb_color = call.data.get("color")
             pattern_on = call.data.get("pattern_on")
             pattern_off = call.data.get("pattern_off")
@@ -34,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             duration = call.data.get("duration", 10)
             restore = call.data.get("restore", True)
 
-            # Build the pattern dict if pattern fields are provided
+            # Build pattern if provided
             pattern = {}
             if pattern_on is not None and pattern_off is not None and pattern_repeat is not None:
                 pattern = {
@@ -43,29 +48,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     "repeat": pattern_repeat
                 }
 
-            all_groups = _get_all_groups(hass)
-            if requested_group not in all_groups:
-                _LOGGER.error("Notification group %s not found", requested_group)
+            # Find which entry_id corresponds to this entity_id:
+            group_data = await find_group_by_entity_id(hass, entity_id)
+            if not group_data:
+                _LOGGER.error("Could not find group for entity_id %s", entity_id)
                 return
 
-            lights = all_groups[requested_group]
+            lights = group_data["lights"]
 
-            old_states = {}
-            for light in lights:
-                old_states[light] = hass.states.get(light)
+            old_states = {light: hass.states.get(light) for light in lights}
 
             await run_notification_pattern(hass, lights, rgb_color, pattern, duration)
 
             if restore:
                 await restore_old_states(hass, old_states)
 
-        hass.services.async_register(
-            DOMAIN,
-            "trigger_notification",
-            async_handle_trigger_notification
-        )
+        hass.services.async_register(DOMAIN, "trigger_notification", async_handle_trigger_notification)
 
     return True
+
+
+async def find_group_by_entity_id(hass: HomeAssistant, entity_id: str):
+    """Find the group data by searching the entities created."""
+    # Since each entry creates one button with a known unique_id, we can look it up:
+    # One approach: track entities during setup. Or look up the entity registry.
+    # For simplicity, we rely on the entry_id -> group mapping:
+
+    # We know the button entity is associated with a config entry. Let's find the entry:
+    registry = await hass.helpers.entity_registry.async_get_registry()
+    ent = registry.entities.get(entity_id)
+    if ent and ent.config_entry_id in hass.data[DOMAIN]:
+        return hass.data[DOMAIN][ent.config_entry_id]
+    return None
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
@@ -115,23 +130,35 @@ async def turn_off_lights(hass: HomeAssistant, lights: list):
     for light in lights:
         await hass.services.async_call("light", "turn_off", {"entity_id": light}, blocking=True)
 
+
 async def restore_old_states(hass: HomeAssistant, old_states: dict):
     """Restore the old states of the lights after the notification is done."""
     for entity_id, old_state in old_states.items():
         if old_state is None:
             continue
+
         attrs = old_state.attributes
         prev_on = (old_state.state == STATE_ON)
 
         if prev_on:
             data = {"entity_id": entity_id}
+
+            # Restore brightness if present
             if "brightness" in attrs:
                 data["brightness"] = attrs["brightness"]
+
+            # Restore color modes:
+            # Check hs_color, rgb_color, xy_color, or color_temp - whichever was originally used
             if "hs_color" in attrs:
                 data["hs_color"] = attrs["hs_color"]
             elif "rgb_color" in attrs:
                 data["rgb_color"] = attrs["rgb_color"]
+            elif "xy_color" in attrs:
+                data["xy_color"] = attrs["xy_color"]
+            elif "color_temp" in attrs:
+                data["color_temp"] = attrs["color_temp"]
 
             await hass.services.async_call("light", "turn_on", data, blocking=True)
         else:
+            # Previously off, just turn it off again
             await hass.services.async_call("light", "turn_off", {"entity_id": entity_id}, blocking=True)
