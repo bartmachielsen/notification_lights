@@ -1,0 +1,8 @@
+{
+  "domain": "notification_lights",
+  "name": "Notification Lights",
+  "documentation": "https://github.com/bartmachielsen/notification_lights",
+  "dependencies": [],
+  "codeowners": ["@bartmachielsen"],
+  "requirements": []
+}

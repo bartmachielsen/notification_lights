@@ -1,0 +1,30 @@
+create_group:
+  name: "Create a notification light group"
+  description: "Create a new notification group with specified lights."
+  fields:
+    group_name:
+      description: "Name of the new notification group."
+      example: "kitchen_alert"
+    lights:
+      description: "List of light entity_ids to include in the group."
+      example: ["light.kitchen_lamp", "light.kitchen_counter"]
+
+trigger_notification:
+  name: "Trigger a notification on a light group"
+  description: "Trigger a visual notification pattern using a defined notification group of lights."
+  fields:
+    group_name:
+      description: "Name of the notification group."
+      example: "alarm_alert"
+    color:
+      description: "Color of the notification (hex code, named, etc.)."
+      example: "#FF0000"
+    pattern:
+      description: "Blink pattern, e.g. {'on': 1.0, 'off': 1.0, 'repeat': 3}"
+      example: {"on": 1.0, "off": 1.0, "repeat": 3}
+    duration:
+      description: "Total duration of the notification in seconds (if no pattern specified)."
+      example: 10
+    restore:
+      description: "Restore previous states after notification ends?"
+      example: true
