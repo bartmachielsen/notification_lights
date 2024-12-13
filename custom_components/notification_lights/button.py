@@ -33,7 +33,7 @@ class NotificationGroupButton(ButtonEntity):
             await self._hass.services.async_call(
                 DOMAIN,
                 "trigger_notification",
-                {"entity_id": self.unique_id, "color": [255, 0, 0]},  # Example RGB color
+                {"entity_id": self.entity_id, "color": [255, 0, 0]},  # Example RGB color
                 blocking=True
             )
         except Exception as e:

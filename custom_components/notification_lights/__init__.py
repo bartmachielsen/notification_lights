@@ -45,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
             for _ in range(3):
                 for light in lights:
-                    await hass.services.async_call("light", "turn_on", {"entity_id": light, "rgb_color": rgb_color}, blocking=True)
+                    await hass.services.async_call("light", "turn_on", {"entity_id": light, "rgb_color": rgb_color, "brightness": 100}, blocking=True)
 
                 await asyncio.sleep(1)
 
@@ -110,9 +110,10 @@ async def restore_old_states(hass: HomeAssistant, old_states: dict):
 
         # Restore light state
         try:
-            if prev_on:
-                await hass.services.async_call("light", "turn_on", data, blocking=True)
-            else:
+            await hass.services.async_call("light", "turn_on", data, blocking=True)
+
+            if not prev_on:
                 await hass.services.async_call("light", "turn_off", {"entity_id": entity_id}, blocking=True)
+
         except Exception as e:
             _LOGGER.error("Failed to restore state for %s: %s", entity_id, e)
