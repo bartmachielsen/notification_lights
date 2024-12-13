@@ -8,6 +8,7 @@ trigger_notification:
       selector:
         entity:
           domain: button
+          integration: notification_lights
     color:
       description: "Notification color (if supported) using a color picker."
       required: false
