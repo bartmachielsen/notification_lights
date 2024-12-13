@@ -86,25 +86,33 @@ async def find_group_by_entity_id(hass: HomeAssistant, entity_id: str):
 
 
 async def restore_old_states(hass: HomeAssistant, old_states: dict):
+    """Restore the original states of the lights."""
     for entity_id, old_state in old_states.items():
         if old_state is None:
             continue
+
+        # Extract attributes from the old state
         attrs = old_state.attributes
-        prev_on = (old_state.state == STATE_ON)
+        prev_on = (old_state.state==STATE_ON)
 
-        if prev_on:
-            data = {"entity_id": entity_id}
-            if "brightness" in attrs:
-                data["brightness"] = attrs["brightness"]
-            if "hs_color" in attrs:
-                data["hs_color"] = attrs["hs_color"]
-            elif "rgb_color" in attrs:
-                data["rgb_color"] = attrs["rgb_color"]
-            elif "xy_color" in attrs:
-                data["xy_color"] = attrs["xy_color"]
-            elif "color_temp" in attrs:
-                data["color_temp"] = attrs["color_temp"]
+        # Prepare data for restoring the light's state
+        data = {"entity_id": entity_id}
+        if "brightness" in attrs:
+            data["brightness"] = attrs["brightness"]
+        if "hs_color" in attrs:
+            data["hs_color"] = attrs["hs_color"]
+        elif "rgb_color" in attrs:
+            data["rgb_color"] = attrs["rgb_color"]
+        elif "xy_color" in attrs:
+            data["xy_color"] = attrs["xy_color"]
+        elif "color_temp" in attrs:
+            data["color_temp"] = attrs["color_temp"]
 
-            await hass.services.async_call("light", "turn_on", data, blocking=True)
-        else:
-            await hass.services.async_call("light", "turn_off", {"entity_id": entity_id}, blocking=True)
+        # Restore light state
+        try:
+            if prev_on:
+                await hass.services.async_call("light", "turn_on", data, blocking=True)
+            else:
+                await hass.services.async_call("light", "turn_off", {"entity_id": entity_id}, blocking=True)
+        except Exception as e:
+            _LOGGER.error("Failed to restore state for %s: %s", entity_id, e)
