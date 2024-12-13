@@ -4,5 +4,6 @@
   "version": "1.0.0",
   "documentation": "https://github.com/bartmachielsen/notification_lights",
   "requirements": [],
-  "codeowners": ["@bartmachielsen"]
+  "codeowners": ["@bartmachielsen"],
+  "config_flow": true
 }

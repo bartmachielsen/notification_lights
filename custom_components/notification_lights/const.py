@@ -1,0 +1,1 @@
+DOMAIN = "notification_lights"
