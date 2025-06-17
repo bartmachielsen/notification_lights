@@ -1,7 +1,7 @@
 {
   "domain": "notification_lights",
   "name": "Notification Lights",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "documentation": "https://github.com/bartmachielsen/notification_lights",
   "requirements": [],
   "codeowners": ["@bartmachielsen"],

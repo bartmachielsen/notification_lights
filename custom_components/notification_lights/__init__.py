@@ -27,7 +27,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     }
 
     # Set up button platform that creates a button entity for this group
-    await hass.config_entries.async_forward_entry_setup(entry, "button")
+    await hass.config_entries.async_forward_entry_setups(entry, ["button"])
 
     # Register service if not already
     if not hass.services.has_service(DOMAIN, "trigger_notification"):
